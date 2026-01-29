@@ -12,3 +12,12 @@ pub struct RegisterReq {
     #[validate(length(min = 6, message = "รหัสผ่านต้องยาว6ตัวขึ้นไป"))]
     pub password: String,
 }
+
+#[derive(Deserialize, Validate)]
+pub struct LoginReq {
+    #[validate(email(message = "รูปแบบอีเมลไม่ถูกต้อง"))]
+    pub email: String,
+
+    #[validate(length(min = 6, message = "รหัสผ่านต้องยาว6ตัวขึ้นไป"))]
+    pub password: String,
+}
