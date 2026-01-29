@@ -1,7 +1,7 @@
 use std::env;
 
 use chrono::Duration;
-use jsonwebtoken::{EncodingKey, Header, encode, errors::Error};
+use jsonwebtoken::{EncodingKey, Header, encode, errors::Error as JwtError};
 use sea_orm::sqlx::types::chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ pub struct Claims {
     pub exp: usize,
 }
 
-pub fn createjwt_token(user_id: String, email: String, role: String, duration: i64) -> Result<String, Error> {
+pub fn createjwt_token(user_id: String, email: String, role: String, duration: i64) -> Result<String, JwtError> {
     let expiration = Utc::now()
         .checked_add_signed(Duration::days(duration))
         .expect("valid timestamp")
