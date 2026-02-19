@@ -1,7 +1,6 @@
+use crate::{common::AppState, modules::auth::auth_routes};
 use axum::Router;
 
-use crate::{common::AppState, modules};
-
 pub fn app_router() -> Router<AppState> {
-    Router::new().nest("/api/auth", modules::auth::router())
+    Router::new().nest("/api", Router::new().nest("/auth", auth_routes()))
 }

@@ -1,13 +1,13 @@
+use axum::{Router, routing::post};
+
+use crate::common::AppState;
+
 pub mod controllers;
 pub mod dto;
 pub mod repositories;
 pub mod usecases;
+use controllers::con::login;
 
-use axum::Router;
-use controllers::con;
-
-use crate::common::AppState;
-
-pub fn router() -> Router<AppState> {
-    Router::new().merge(con::router())
+pub fn auth_routes() -> Router<AppState> {
+    Router::new().route("/login", post(login))
 }

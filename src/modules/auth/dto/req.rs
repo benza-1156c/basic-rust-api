@@ -1,23 +1,12 @@
-use serde::Deserialize;
+use serde::{Deserialize};
 use validator::Validate;
 
-#[derive(Deserialize, Validate)]
-pub struct RegisterReq {
-    #[validate(email(message = "รูปแบบอีเมลไม่ถูกต้อง"))]
+#[derive(Debug, Deserialize, Validate)]
+pub struct LoginReq {
+    #[validate(email(message = "อีเมลไม่ถูกต้อง"))]
     pub email: String,
-
-    #[validate(length(min = 1, message = "กรุณากรอกชื่อผู้ใช้"))]
     pub username: String,
 
-    #[validate(length(min = 6, message = "รหัสผ่านต้องยาว6ตัวขึ้นไป"))]
-    pub password: String,
-}
-
-#[derive(Deserialize, Validate)]
-pub struct LoginReq {
-    #[validate(email(message = "รูปแบบอีเมลไม่ถูกต้อง"))]
-    pub email: String,
-
-    #[validate(length(min = 6, message = "รหัสผ่านต้องยาว6ตัวขึ้นไป"))]
+    #[validate(length(min = 6, message = "รหัสผ่านต้องมีอย่างน้อย 6 ตัว"))]
     pub password: String,
 }
