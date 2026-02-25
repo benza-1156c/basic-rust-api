@@ -21,7 +21,7 @@ pub struct Ctx {
 
 impl Ctx {
     #[inline]
-    pub fn db(&self) -> &DatabaseConnection{
+    pub fn db(&self) -> &DatabaseConnection {
         &self.db
     }
 
@@ -61,6 +61,7 @@ impl Ctx {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn ok(&self) -> Result<axum::Json<serde_json::Value>, AppError> {
         Ok(axum::Json(json!({
             "success": true

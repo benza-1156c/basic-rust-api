@@ -24,4 +24,5 @@ validator = { version = "0.20.0", features = ["derive"] }
 
 axum-cookie = "0.2.4"
 jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
-chrono = "0.4.43"
+chrono = "0.4.44"
+uuid = { version = "1.21.0", features = ["v4"] }

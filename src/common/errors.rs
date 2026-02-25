@@ -7,17 +7,14 @@ pub const ERR_UNAUTHORIZED: &str = "คุณไม่มีสิทธิ์�
 pub const ERR_INTERNAL: &str = "เกิดข้อผิดพลาดภายในระบบ";
 pub const ERR_DUPLICATE: &str = "ข้อมูลนี้มีอยู่ในระบบแล้ว";
 pub const ERR_INVALID: &str = "ข้อมูลที่ส่งมาไม่ถูกต้อง";
-pub const ERR_PROCESSING: &str = "ไม่สามารถดำเนินการได้ในขณะนี้ กรุณาลองใหม่ภายหลัง";
 
 #[derive(Debug)]
 pub enum AppError {
     NotFound,
     Duplicate,
-    ValidationError(String),
 
     Unauthorized,
     Internal { debug: String },
-    Processing,
 
     Custom { msg: String, debug: Option<String> },
 }
@@ -27,10 +24,8 @@ impl std::fmt::Display for AppError {
         let msg = match self {
             Self::NotFound => ERR_NOT_FOUND,
             Self::Duplicate => ERR_DUPLICATE,
-            Self::ValidationError(e) => return write!(f, "{}: {}", ERR_INVALID, e),
             Self::Unauthorized => ERR_UNAUTHORIZED,
             Self::Internal { .. } => ERR_INTERNAL,
-            Self::Processing => ERR_PROCESSING,
             Self::Custom { msg, .. } => msg.as_str(),
         };
         write!(f, "{}", msg)
@@ -61,21 +56,11 @@ pub fn parse_error(err: &AppError) -> (StatusCode, String, Option<String>) {
     match err {
         AppError::NotFound => (StatusCode::NOT_FOUND, ERR_NOT_FOUND.to_string(), None),
         AppError::Duplicate => (StatusCode::CONFLICT, ERR_DUPLICATE.to_string(), None),
-        AppError::ValidationError(field) => (
-            StatusCode::BAD_REQUEST,
-            ERR_INVALID.to_string(),
-            Some(format!("field: {}", field)),
-        ),
         AppError::Unauthorized => (StatusCode::UNAUTHORIZED, ERR_UNAUTHORIZED.to_string(), None),
         AppError::Internal { debug } => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ERR_INTERNAL.to_string(),
             Some(debug.clone()),
-        ),
-        AppError::Processing => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            ERR_PROCESSING.to_string(),
-            None,
         ),
         AppError::Custom { msg, debug } => (StatusCode::BAD_REQUEST, msg.clone(), debug.clone()),
     }
@@ -110,27 +95,75 @@ impl AppError {
 
 impl From<DbErr> for AppError {
     fn from(err: DbErr) -> Self {
-        let err_str = err.to_string();
+        let debug = err.to_string();
+
+        if let Some(sql_err) = err.sql_err() {
+            return match sql_err {
+                sea_orm::SqlErr::UniqueConstraintViolation(_) => Self::Duplicate,
+                sea_orm::SqlErr::ForeignKeyConstraintViolation(_) => Self::Custom {
+                    msg: "ข้อมูลอ้างอิงไม่ถูกต้อง".into(),
+                    debug: Some(debug),
+                },
+                _ => Self::Internal { debug },
+            };
+        }
 
         match err {
-            DbErr::RecordNotFound(_) => Self::NotFound,
-            _ => {
-                if err_str.contains("unique constraint") || err_str.contains("duplicate key") {
-                    Self::Duplicate
-                } else {
-                    Self::Internal { debug: err_str }
-                }
-            }
+            DbErr::RecordNotFound(_) => Self::Custom {
+                msg: ERR_NOT_FOUND.into(),
+                debug: Some(debug),
+            },
+
+            DbErr::ConnectionAcquire(_) => Self::Custom {
+                msg: "ไม่สามารถเชื่อมต่อฐานข้อมูลได้".into(),
+                debug: Some(debug),
+            },
+
+            DbErr::Conn(_) => Self::Custom {
+                msg: "การเชื่อมต่อฐานข้อมูลมีปัญหา".into(),
+                debug: Some(debug),
+            },
+
+            DbErr::Exec(_) => Self::Custom {
+                msg: "ไม่สามารถดำเนินการกับฐานข้อมูลได้".into(),
+                debug: Some(debug),
+            },
+
+            DbErr::Query(_) => Self::Custom {
+                msg: "เกิดข้อผิดพลาดในการค้นหาข้อมูล".into(),
+                debug: Some(debug),
+            },
+
+            DbErr::RecordNotInserted => Self::Custom {
+                msg: "ไม่สามารถบันทึกข้อมูลได้".into(),
+                debug: Some(debug),
+            },
+
+            DbErr::RecordNotUpdated => Self::Custom {
+                msg: "ไม่สามารถอัปเดตข้อมูลได้".into(),
+                debug: Some(debug),
+            },
+
+            DbErr::Type(_) | DbErr::Json(_) | DbErr::TryIntoErr { .. } => Self::Custom {
+                msg: "ข้อมูลไม่ถูกต้องตามรูปแบบที่กำหนด".into(),
+                debug: Some(debug),
+            },
+
+            _ => Self::Internal { debug },
         }
     }
 }
 
-pub trait DbErrExt {
-    fn into_app_err(self) -> AppError;
+pub trait IntoAppResult<T> {
+    fn into_app_result(self) -> Result<T, AppError>;
 }
 
-impl DbErrExt for DbErr {
-    fn into_app_err(self) -> AppError {
-        self.into()
+impl<T> IntoAppResult<T> for Result<Option<T>, DbErr> {
+    fn into_app_result(self) -> Result<T, AppError> {
+        match self {
+            Ok(Some(v)) => Ok(v),
+            Ok(None) => Err(AppError::NotFound),
+            Err(e) => Err(AppError::from(e)),
+        }
     }
 }
